@@ -1,0 +1,104 @@
+{
+  "instances": [
+    {
+  "input": "data/exact/inputs/graph_0000.json",
+  "output": "data/exact/outputs/graph_0000.json"
+    },
+    {
+  "input": "data/exact/inputs/graph_0001.json",
+  "output": "data/exact/outputs/graph_0001.json"
+    },
+    {
+  "input": "data/exact/inputs/graph_0002.json",
+  "output": "data/exact/outputs/graph_0002.json"
+    },
+    {
+  "input": "data/exact/inputs/graph_0003.json",
+  "output": "data/exact/outputs/graph_0003.json"
+    },
+    {
+  "input": "data/exact/inputs/graph_0004.json",
+  "output": "data/exact/outputs/graph_0004.json"
+    },
+    {
+  "input": "data/exact/inputs/graph_0005.json",
+  "output": "data/exact/outputs/graph_0005.json"
+    },
+    {
+  "input": "data/exact/inputs/graph_0006.json",
+  "output": "data/exact/outputs/graph_0006.json"
+    },
+    {
+  "input": "data/exact/inputs/graph_0007.json",
+  "output": "data/exact/outputs/graph_0007.json"
+    },
+    {
+  "input": "data/exact/inputs/graph_0008.json",
+  "output": "data/exact/outputs/graph_0008.json"
+    },
+    {
+  "input": "data/exact/inputs/graph_0009.json",
+  "output": "data/exact/outputs/graph_0009.json"
+    },
+    {
+  "input": "data/exact/inputs/graph_0010.json",
+  "output": "data/exact/outputs/graph_0010.json"
+    },
+    {
+  "input": "data/exact/inputs/graph_0011.json",
+  "output": "data/exact/outputs/graph_0011.json"
+    },
+    {
+  "input": "data/exact/inputs/graph_0012.json",
+  "output": "data/exact/outputs/graph_0012.json"
+    },
+    {
+  "input": "data/exact/inputs/graph_0013.json",
+  "output": "data/exact/outputs/graph_0013.json"
+    },
+    {
+  "input": "data/exact/inputs/graph_0014.json",
+  "output": "data/exact/outputs/graph_0014.json"
+    },
+    {
+  "input": "data/exact/inputs/graph_0015.json",
+  "output": "data/exact/outputs/graph_0015.json"
+    },
+    {
+  "input": "data/exact/inputs/graph_0016.json",
+  "output": "data/exact/outputs/graph_0016.json"
+    },
+    {
+  "input": "data/exact/inputs/graph_0017.json",
+  "output": "data/exact/outputs/graph_0017.json"
+    },
+    {
+  "input": "data/exact/inputs/graph_0018.json",
+  "output": "data/exact/outputs/graph_0018.json"
+    },
+    {
+  "input": "data/exact/inputs/graph_0019.json",
+  "output": "data/exact/outputs/graph_0019.json"
+    },
+    {
+  "input": "data/exact/inputs/graph_0020.json",
+  "output": "data/exact/outputs/graph_0020.json"
+    },
+    {
+  "input": "data/exact/inputs/graph_0021.json",
+  "output": "data/exact/outputs/graph_0021.json"
+    },
+    {
+  "input": "data/exact/inputs/graph_0022.json",
+  "output": "data/exact/outputs/graph_0022.json"
+    },
+    {
+  "input": "data/exact/inputs/graph_0023.json",
+  "output": "data/exact/outputs/graph_0023.json"
+    },
+    {
+  "input": "data/exact/inputs/graph_0024.json",
+  "output": "data/exact/outputs/graph_0024.json"
+    }
+  ]
+}
