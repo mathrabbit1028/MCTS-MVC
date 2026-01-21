@@ -1,4 +1,5 @@
 #include "mcts.hpp"
+#define THRESHOLD_EXACT_SOLVE 16
 
 MCTS::MCTS(Graph& graph, double explorationParam)
     : root(new Node())
@@ -119,66 +120,51 @@ Node* MCTS::expand(Node* node) {
 
 State MCTS::simulate(Node* node) {
 
-    /* ============================================[for testing]============================================ */
-    // Rough rollout: starting from current selection, greedily add vertices until all edges are covered
-    const int n = this->graph.numVertices;
-    std::vector<std::vector<int>> adj = this->graph.adjacencyList;
-
-    // Track selection as a local copy
-    std::vector<bool> sel(n, false);
-    for (int i = 0; i < n; ++i) {
-        sel[i] = (node->state.selectedVertices.find(i) != node->state.selectedVertices.end());
-    }
-
-    auto covered = [&](int u, int v) {
-        return sel[u] || sel[v];
-    };
-
-    // Build edge list from adjacency (u < v)
-    std::vector<std::pair<int,int>> edges;
-    for (int u = 0; u < n; ++u) {
-        for (int v : adj[u]) {
-            if (u < v) edges.emplace_back(u, v);
+    // Build a residual graph by removing all selected vertices and edges incident to them.
+    // 1) Determine unselected vertices and create a compact index mapping.
+    std::vector<int> oldToNew(this->graph.numVertices, -1);
+    std::vector<int> keep;
+    keep.reserve(this->graph.numVertices);
+    for (int i = 0; i < this->graph.numVertices; ++i) {
+        if (!node->state.selectedVertices.count(i)) {
+            oldToNew[i] = static_cast<int>(keep.size());
+            keep.push_back(i);
         }
     }
-
-    // Greedy: add max-degree vertex among uncovered edges until covered
-    auto uncoveredExists = [&]() {
-        for (auto &e : edges) if (!covered(e.first, e.second)) return true;
-        return false;
-    };
-
-    while (uncoveredExists()) {
-        // Compute degrees on uncovered edges
-        std::vector<int> deg(n, 0);
-        for (auto &e : edges) {
-            int u = e.first, v = e.second;
-            if (!covered(u, v)) {
-                deg[u]++;
-                deg[v]++;
+    // 2) Create remainGraph with only the unselected vertices.
+    Graph remainGraph(static_cast<int>(keep.size()));
+    // Preserve weights for kept vertices (default weight=1 if missing).
+    for (int ni = 0; ni < (int)keep.size(); ++ni) {
+        int oi = keep[ni];
+        assert(oi < this->graph.numVertices);
+        remainGraph.weights[ni] = this->graph.weights[oi];
+    }
+    // 3) Add edges among kept vertices, remapped to compact indices. Use u<v to avoid duplicates.
+    for (int u = 0; u < this->graph.numVertices; ++u) {
+        int su = oldToNew[u];
+        if (su < 0) continue; // u was selected; removed
+        for (int v : this->graph.adjacencyList[u]) {
+            if (u < v) {
+                int sv = oldToNew[v];
+                if (sv < 0) continue; // v was selected; removed
+                // add undirected edge once
+                remainGraph.addEdge(su, sv);
             }
         }
-        // pick argmax deg among not-yet-selected
-        int w = -1, best = -1;
-        for (int i = 0; i < n; ++i) {
-            if (!sel[i] && deg[i] > best) { best = deg[i]; w = i; }
-        }
-        if (w == -1) {
-            // fallback: pick any unselected vertex
-            for (int i = 0; i < n; ++i) { if (!sel[i]) { w = i; break; } }
-        }
-        if (w == -1) break; // all selected
-        sel[w] = true;
     }
 
-    return State(sel);
+    State remainSol = GraphOracle::coarseSolve(remainGraph);
+    State finalSol = node->state;
+    for (int i = 0; i < this->graph.numVertices; ++i) {
+        if (oldToNew[i] != -1) {
+            if (remainSol.isSelected[oldToNew[i]]) {
+                finalSol.include(i);
+            }
+        }
+    }
 
-    /* ============================================[research]============================================ */
-    // (todo)
-    // Graph smallGraph = encode(node->graph);
-    // State sol = exactSolve(smallGraph);
-    // State finalSol = decode(sol, node->graph);
-    // return finalSol;
+    // assert(finalSol.isValid(this->graph));
+    return finalSol;
 }
 
 void MCTS::backpropagate(Node* node, double reward) {

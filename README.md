@@ -1,3 +1,5 @@
+> Note: This branch uses **vertex-based actions** and a **compressed-heuristic rollout**.
+
 # MCTS-MVC: Monte Carlo Tree Search for Minimum Vertex Cover
 
 This repository explores an approximation strategy for the Minimum Vertex Cover (MVC) problem using Monte Carlo Tree Search (MCTS).
@@ -142,7 +144,7 @@ From the repo root on macOS with clang:
 clang++ -std=c++17 src/lib/utils.cpp src/lib/node.cpp src/lib/mcts.cpp src/test/test_mcts.cpp -o src/test/test_mcts_bin
 src/test/test_mcts_bin
 ```
-Expected output includes a non-zero simulate reward and "All tests passed.".
+Expected output includes and "All tests passed.".
 
 ### Performance harness
 The performance harness `src/test/perf_mcts.cpp` reads a manifest and prints per-instance CSV metrics.
@@ -160,3 +162,11 @@ The performance harness `src/test/perf_mcts.cpp` reads a manifest and prints per
 - Examples:
   - Default run: `./src/test/perf_mcts_bin` → writes `./result/mvc_exact_iters-10_exp-0.csv`
   - Large dataset: `./src/test/perf_mcts_bin --manifest data/large/manifest.json --iterations 50 --exploration 0.25 --out-dir ./result-large`
+
+<!-- ## Coarsening Ideas
+1. 두개씩 묶기
+  + 홀수개 버킷에서 남는걸 그냥 남겨놨더니 16개 이하에 도달 X
+  + supernode 다 썼더니 거의 MVC를 얻긴 하는데 너무 많은 노드 사용
+  + supernode 중에 하나만 골랐더니 MVC보다 한참 작음 + 그리디보다 성능이 안좋음
+2. MVC에 포함될 확률이 비슷한 노드끼리 압축하기
+3. LP를 돌려서 0.5인것만 남기는 방식으로 압축하기 -->

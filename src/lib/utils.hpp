@@ -21,6 +21,11 @@ public:
     int numVertices;
 
     /**
+     * @brief Weights of the vertices.
+     */
+    std::vector<int> weights;
+
+    /**
      * @brief Adjacency list representing the graph.
      */
     std::vector<std::vector<int>> adjacencyList;
@@ -31,6 +36,11 @@ public:
      * @param v The second vertex.
      */
     void addEdge(int u, int v);
+
+    /**
+     * @brief Prints the graph's adjacency list and weights.
+     */
+    void print();
 };
 
 /**
@@ -100,6 +110,13 @@ public:
      * @return An integer representing the count of possible actions.
      */
     int getActionCounts();
+
+    /**
+     * @brief Checks if the state is a valid vertex cover for the given graph.
+     * @param graph The graph to validate against.
+     * @return true if the state is a valid vertex cover, false otherwise.
+     */
+    bool isValid(const Graph& graph) const;
 };
 
 // Forward declaration to avoid circular include in headers
@@ -114,5 +131,45 @@ namespace UCT {
      */
     Node* sampling(std::vector<Node*>& children, double explorationParam = 0.0);
 };
+
+namespace GraphOracle {
+    /**
+     * @brief Coarsens the graph by merging vertices.
+     * @param g The original graph.
+     * @return The coarsened graph, which approximately has half the vertices, with a mapping from original to coarsened vertices.
+     */
+    std::pair<Graph, std::vector<std::vector<int>>> coarsenGraph(const Graph& g);
+
+    /**
+     * @brief Solver for the coarsened graph.
+     * @param graph The coarsened graph to solve.
+     * @return The State representing the vertex cover on the coarsened graph.
+     */
+    State coarseSolve(const Graph& graph);
+
+    /**
+     * @brief Exact solver for small graphs using brute-force.
+     * @param g The graph to solve.
+     * @return The optimal State representing the vertex cover.
+     */
+    State exactSolve(const Graph& graph);
+
+    /**
+     * @brief Greedy solver for vertex cover.
+     * @param g The graph to solve.
+     * @return The approximate State representing the vertex cover.
+     */
+    State greedySolve(const Graph& graph);
+
+    /**
+     * @brief Lifts a solution from a coarsened graph back to the original graph.
+     * @param coarseGraph The coarsened graph.
+     * @param coarseState The solution state on the coarsened graph.
+     * @param originalGraph The original graph.
+     * @return The lifted State on the original graph.
+     */
+    State lifting(const Graph& coarseGraph, const State& coarseState, 
+                  const Graph& originalGraph, const State& originalState);
+}
 
 #endif // UTILS_HPP
