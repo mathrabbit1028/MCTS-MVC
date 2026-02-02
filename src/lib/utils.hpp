@@ -67,15 +67,16 @@ public:
     std::unordered_set<int> possibleVertices;
 
     /**
-     * @brief Number of expandable actions.
+     * @brief Pair representing the edge for the current action.
      */
-    int expandable;
+    std::pair<int, int> actionEdge;
 
     /**
-     * @brief Selects a random vertex from the graph.
-     * @return An integer representing the selected vertex.
+     * @brief Selects a random action edge from the valid edges.
+     * @param graph The graph to select the edge from.
+     * @return true if an action edge was selected, false otherwise.
      */
-    int randomVertex();
+    bool selectActionEdge(const Graph& graph);
 
     /**
      * @brief Selects a vertex in the solution.
@@ -94,25 +95,27 @@ public:
      * @return A double representing the evaluation score.
      */
     double evaluate();
-
-    /**
-     * @brief Gets the count of possible actions.
-     * @return An integer representing the count of possible actions.
-     */
-    int getActionCounts();
 };
 
 // Forward declaration to avoid circular include in headers
 class Node;
 
-namespace UCT {
+namespace treePolicy {
     /**
      * @brief Samples a child node using the UCT formula.
-     * @param children Vector of pointers to child nodes.
+     * @param node Pointer to the parent node.
      * @param explorationParam Exploration parameter for UCT.
      * @return Pointer to the selected child node.
      */
-    Node* sampling(std::vector<Node*>& children, double explorationParam = 0.0);
+    Node* uctSampling(Node* node, double explorationParam = 0.0);
+
+    /**
+     * @brief Samples a child node using epsilon-greedy strategy based on state rewards.
+     * @param node Pointer to the parent node.
+     * @param explorationParam epsilon parameter for exploration.
+     * @return Pointer to the selected child node.
+     */
+    Node* epsilonGreedy(Node* node, double explorationParam = 0.0);
 };
 
 #endif // UTILS_HPP

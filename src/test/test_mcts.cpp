@@ -44,7 +44,9 @@ int main() {
     for (int i = 0; i < 2; ++i) {
         mcts.expand(child0);
     }
-    assert(child0->state.getActionCounts() == 0 || child0->children.size() >= 2);
+    // With edge-based branching, a successful expand will typically add 2 children
+    // (unless no valid actionEdge remains).
+    assert(child0->children.empty() || child0->children.size() >= 2);
 
     // UCT sampling sanity: should return one of the children
     Node* picked = UCT::sampling(mcts.root->children);

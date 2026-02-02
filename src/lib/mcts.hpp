@@ -46,6 +46,11 @@ public:
     double explorationParam = 0.0;
 
     /**
+     * @brief The best answer found so far (size of minimum vertex cover).
+     */
+    int answer;
+
+    /**
      * @brief Sets the exploration parameter for UCT sampling.
      * @param param The exploration parameter to be set.
      */
@@ -78,6 +83,12 @@ public:
      * @param reward The reward to be backpropagated.
      */
     void backpropagate(Node* node, double reward);
+
+    /**
+     * @brief Updates the expandable count of ancestor nodes.
+     * @param node Pointer to the node whose ancestors are to be updated.
+     */
+    void expandableUpdate(Node* node);
 };
 
 #endif // MCTS_HPP

@@ -1,0 +1,204 @@
+{
+  "instances": [
+    {
+      "input": "data/small/inputs/graph_0000.json",
+      "output": "data/small/outputs/graph_0000.json"
+    },
+    {
+      "input": "data/small/inputs/graph_0001.json",
+      "output": "data/small/outputs/graph_0001.json"
+    },
+    {
+      "input": "data/small/inputs/graph_0002.json",
+      "output": "data/small/outputs/graph_0002.json"
+    },
+    {
+      "input": "data/small/inputs/graph_0003.json",
+      "output": "data/small/outputs/graph_0003.json"
+    },
+    {
+      "input": "data/small/inputs/graph_0004.json",
+      "output": "data/small/outputs/graph_0004.json"
+    },
+    {
+      "input": "data/small/inputs/graph_0005.json",
+      "output": "data/small/outputs/graph_0005.json"
+    },
+    {
+      "input": "data/small/inputs/graph_0006.json",
+      "output": "data/small/outputs/graph_0006.json"
+    },
+    {
+      "input": "data/small/inputs/graph_0007.json",
+      "output": "data/small/outputs/graph_0007.json"
+    },
+    {
+      "input": "data/small/inputs/graph_0008.json",
+      "output": "data/small/outputs/graph_0008.json"
+    },
+    {
+      "input": "data/small/inputs/graph_0009.json",
+      "output": "data/small/outputs/graph_0009.json"
+    },
+    {
+      "input": "data/small/inputs/graph_0010.json",
+      "output": "data/small/outputs/graph_0010.json"
+    },
+    {
+      "input": "data/small/inputs/graph_0011.json",
+      "output": "data/small/outputs/graph_0011.json"
+    },
+    {
+      "input": "data/small/inputs/graph_0012.json",
+      "output": "data/small/outputs/graph_0012.json"
+    },
+    {
+      "input": "data/small/inputs/graph_0013.json",
+      "output": "data/small/outputs/graph_0013.json"
+    },
+    {
+      "input": "data/small/inputs/graph_0014.json",
+      "output": "data/small/outputs/graph_0014.json"
+    },
+    {
+      "input": "data/small/inputs/graph_0015.json",
+      "output": "data/small/outputs/graph_0015.json"
+    },
+    {
+      "input": "data/small/inputs/graph_0016.json",
+      "output": "data/small/outputs/graph_0016.json"
+    },
+    {
+      "input": "data/small/inputs/graph_0017.json",
+      "output": "data/small/outputs/graph_0017.json"
+    },
+    {
+      "input": "data/small/inputs/graph_0018.json",
+      "output": "data/small/outputs/graph_0018.json"
+    },
+    {
+      "input": "data/small/inputs/graph_0019.json",
+      "output": "data/small/outputs/graph_0019.json"
+    },
+    {
+      "input": "data/small/inputs/graph_0020.json",
+      "output": "data/small/outputs/graph_0020.json"
+    },
+    {
+      "input": "data/small/inputs/graph_0021.json",
+      "output": "data/small/outputs/graph_0021.json"
+    },
+    {
+      "input": "data/small/inputs/graph_0022.json",
+      "output": "data/small/outputs/graph_0022.json"
+    },
+    {
+      "input": "data/small/inputs/graph_0023.json",
+      "output": "data/small/outputs/graph_0023.json"
+    },
+    {
+      "input": "data/small/inputs/graph_0024.json",
+      "output": "data/small/outputs/graph_0024.json"
+    },
+    {
+      "input": "data/small/inputs/graph_0025.json",
+      "output": "data/small/outputs/graph_0025.json"
+    },
+    {
+      "input": "data/small/inputs/graph_0026.json",
+      "output": "data/small/outputs/graph_0026.json"
+    },
+    {
+      "input": "data/small/inputs/graph_0027.json",
+      "output": "data/small/outputs/graph_0027.json"
+    },
+    {
+      "input": "data/small/inputs/graph_0028.json",
+      "output": "data/small/outputs/graph_0028.json"
+    },
+    {
+      "input": "data/small/inputs/graph_0029.json",
+      "output": "data/small/outputs/graph_0029.json"
+    },
+    {
+      "input": "data/small/inputs/graph_0030.json",
+      "output": "data/small/outputs/graph_0030.json"
+    },
+    {
+      "input": "data/small/inputs/graph_0031.json",
+      "output": "data/small/outputs/graph_0031.json"
+    },
+    {
+      "input": "data/small/inputs/graph_0032.json",
+      "output": "data/small/outputs/graph_0032.json"
+    },
+    {
+      "input": "data/small/inputs/graph_0033.json",
+      "output": "data/small/outputs/graph_0033.json"
+    },
+    {
+      "input": "data/small/inputs/graph_0034.json",
+      "output": "data/small/outputs/graph_0034.json"
+    },
+    {
+      "input": "data/small/inputs/graph_0035.json",
+      "output": "data/small/outputs/graph_0035.json"
+    },
+    {
+      "input": "data/small/inputs/graph_0036.json",
+      "output": "data/small/outputs/graph_0036.json"
+    },
+    {
+      "input": "data/small/inputs/graph_0037.json",
+      "output": "data/small/outputs/graph_0037.json"
+    },
+    {
+      "input": "data/small/inputs/graph_0038.json",
+      "output": "data/small/outputs/graph_0038.json"
+    },
+    {
+      "input": "data/small/inputs/graph_0039.json",
+      "output": "data/small/outputs/graph_0039.json"
+    },
+    {
+      "input": "data/small/inputs/graph_0040.json",
+      "output": "data/small/outputs/graph_0040.json"
+    },
+    {
+      "input": "data/small/inputs/graph_0041.json",
+      "output": "data/small/outputs/graph_0041.json"
+    },
+    {
+      "input": "data/small/inputs/graph_0042.json",
+      "output": "data/small/outputs/graph_0042.json"
+    },
+    {
+      "input": "data/small/inputs/graph_0043.json",
+      "output": "data/small/outputs/graph_0043.json"
+    },
+    {
+      "input": "data/small/inputs/graph_0044.json",
+      "output": "data/small/outputs/graph_0044.json"
+    },
+    {
+      "input": "data/small/inputs/graph_0045.json",
+      "output": "data/small/outputs/graph_0045.json"
+    },
+    {
+      "input": "data/small/inputs/graph_0046.json",
+      "output": "data/small/outputs/graph_0046.json"
+    },
+    {
+      "input": "data/small/inputs/graph_0047.json",
+      "output": "data/small/outputs/graph_0047.json"
+    },
+    {
+      "input": "data/small/inputs/graph_0048.json",
+      "output": "data/small/outputs/graph_0048.json"
+    },
+    {
+      "input": "data/small/inputs/graph_0049.json",
+      "output": "data/small/outputs/graph_0049.json"
+    }
+  ]
+}

@@ -7,8 +7,34 @@
 #include <sstream>
 #include <cmath>
 #include <filesystem>
+#include <chrono>
+#include <iomanip>
 #include "../lib/mcts.hpp"
 #include "../lib/utils.hpp"
+
+// Simple tqdm-like progress rendering for items and iterations
+static void render_progress(std::size_t itemIndex, std::size_t totalItems,
+                            int iterIndex, int totalIters) {
+    auto makeBar = [](double ratio, int width) {
+        if (ratio < 0.0) ratio = 0.0; if (ratio > 1.0) ratio = 1.0;
+        int filled = static_cast<int>(ratio * width);
+        std::string bar;
+        bar.reserve(width + 2);
+        bar.push_back('[');
+        for (int i = 0; i < width; ++i) bar.push_back(i < filled ? '#' : '.');
+        bar.push_back(']');
+        return bar;
+    };
+
+    double itemRatio = totalItems > 0 ? static_cast<double>(itemIndex + 1) / static_cast<double>(totalItems) : 1.0;
+    double iterRatio = totalIters > 0 ? static_cast<double>(iterIndex) / static_cast<double>(totalIters) : 1.0;
+    std::string itemBar = makeBar(itemRatio, 20);
+    std::string iterBar = makeBar(iterRatio, 20);
+
+    std::cout << "\ritems " << itemBar << " " << (itemIndex + 1) << "/" << totalItems
+              << "  iters " << iterBar << " " << iterIndex << "/" << totalIters
+              << std::flush;
+}
 
 struct InstancePath {
     std::string input;
@@ -53,47 +79,74 @@ static int count_nodes_recursive(Node* node) {
     return total;
 }
 
-static void run_perf(const std::vector<InstancePath>& items, int iterations, double explorationParam, std::ostream& out) {
+static double run_perf(const std::vector<InstancePath>& items, int iterations, double explorationParam, std::ostream& out) {
     // CSV header for per-instance metrics
     // idx: instance index in manifest
     // n: number of vertices
     // edges: number of edges
     // root_children: number of children under root after iterations
     // total_nodes: total nodes in the MCTS tree (root + all descendants)
-    // best_visits: visits of the best child (by value, tie-break by visits)
-    // best_value: value of the best child
     // est_cover: estimated cover size from simulate(best)
     // truth_cover: ground-truth cover size from dataset output
-    out << "idx,n,edges,root_children,total_nodes,best_visits,best_value,est_cover,truth_cover\n";
+    out << "idx,n,edges,root_children,total_nodes,est_cover,truth_cover\n";
 
     // Track average reward per iteration across instances
     std::vector<double> avgRewards(iterations, 0.0);
     std::vector<int> counts(iterations, 0);
 
+    double cumulativeSeconds = 0.0;
+
     for (size_t i = 0; i < items.size(); ++i) {
+        auto tLoadStart = std::chrono::steady_clock::now();
         Graph g = loadGraphFromJson(items[i].input);
+        auto tLoadEnd = std::chrono::steady_clock::now();
+        double loadSecs = std::chrono::duration<double>(tLoadEnd - tLoadStart).count();
+
         MCTS mcts(g, explorationParam);
 
         // Run and accumulate reward after each iteration
-        for (int it = 0; it < iterations; ++it) mcts.run();
+        auto tIterStart = std::chrono::steady_clock::now();
+        for (int it = 0; it < iterations; ++it) {
+            if (mcts.root->expandable == 0) {
+                // Fully expanded, no need to continue
+                break;
+            }
+            mcts.run();
+            // tqdm-like progress update for current item
+            render_progress(i, items.size(), it + 1, iterations);
+        }
+        auto tIterEnd = std::chrono::steady_clock::now();
+        double iterSecs = std::chrono::duration<double>(tIterEnd - tIterStart).count();
+        // Ensure full progress shown for the item before stats
+        render_progress(i, items.size(), iterations, iterations);
+        std::cout << "\n"; // end progress line for timing output
 
         // Final tree stats
+        auto tStatsStart = std::chrono::steady_clock::now();
         int rootChildren = (int)mcts.root->children.size();
         int totalNodes = count_nodes_recursive(mcts.root);
-        Node* best = nullptr;
-        for (Node* c : mcts.root->children) {
-            if (!best || c->value > best->value || (c->value == best->value && c->visits > best->visits)) {
-                best = c;
-            }
-        }
-        double bestVal = best ? best->value : 0.0;
-        int bestVisits = best ? best->visits : 0;
-        double reward = mcts.simulate(best ? best : mcts.root).evaluate();
-        int estCover = reward > 0.0 ? (int)std::round(1.0 / reward) : 0;
+        int estCover = mcts.answer;
         int truth = load_output_size(items[i].output);
+        auto tStatsEnd = std::chrono::steady_clock::now();
+        double statsSecs = std::chrono::duration<double>(tStatsEnd - tStatsStart).count();
+
+        cumulativeSeconds += loadSecs + iterSecs + statsSecs;
+        double avgIterSecs = iterations > 0 ? iterSecs / (double)iterations : 0.0;
+
+        // Print per-instance timing breakdown with cumulative seconds
+        std::cout << std::fixed << std::setprecision(3)
+                  << "timing | load=" << loadSecs << "s"
+                  << " iter=" << iterSecs << "s (avg=" << avgIterSecs << "s)"
+                  << " stats=" << statsSecs << "s"
+                  << " | cum=" << cumulativeSeconds << "s\n";
+
         out << i << "," << g.numVertices << "," << count_edges(g) << "," << rootChildren
-            << "," << totalNodes << "," << bestVisits << "," << bestVal << "," << estCover << "," << truth << "\n";
+            << "," << totalNodes << "," << estCover << "," << truth << "\n";
+        out << std::flush;
     }
+    // Finish progress line
+    std::cout << "\n";
+    return cumulativeSeconds;
 }
 
 int main(int argc, char** argv) {
@@ -118,21 +171,33 @@ int main(int argc, char** argv) {
         }
     }
 
-    // Load items
+    // Load items (timed)
+    auto tManStart = std::chrono::steady_clock::now();
     auto items = load_manifest(manifest);
+    auto tManEnd = std::chrono::steady_clock::now();
+    double manifestSecs = std::chrono::duration<double>(tManEnd - tManStart).count();
     if (items.empty()) {
         std::cerr << "No instances found in manifest: " << manifest << std::endl;
         return 1;
     }
+    std::cout << std::fixed << std::setprecision(3)
+              << "Loaded " << items.size() << " instances from manifest in " << manifestSecs << "s\n";
 
     // Ensure output directory exists
     std::error_code ec;
     std::filesystem::create_directories(outDir, ec);
 
-    // Derive dataset tag from manifest path (e.g., "exact" or "large")
+    // Derive dataset tag from manifest path: extract folder name from "data/<tag>/manifest.json"
     std::string tag = "dataset";
-    if (manifest.find("exact") != std::string::npos) tag = "exact";
-    else if (manifest.find("large") != std::string::npos) tag = "large";
+    std::filesystem::path manifestPath(manifest);
+    if (manifestPath.parent_path().filename() == "manifest.json") {
+        // Handle case where manifest itself might be the filename
+        manifestPath = manifestPath.parent_path();
+    }
+    std::string folderName = manifestPath.parent_path().filename().string();
+    if (!folderName.empty() && folderName != "data") {
+        tag = folderName;
+    }
 
     // Compose output filename
     std::ostringstream fname;
@@ -148,7 +213,11 @@ int main(int argc, char** argv) {
     // Info
     std::cout << "Writing results to: " << outPath << std::endl;
 
-    // Run perf and write CSV
-    run_perf(items, iterations, explorationParam, out);
+    // Run perf and write CSV (timed per instance internally)
+    double runSecs = run_perf(items, iterations, explorationParam, out);
+    std::cout << std::fixed << std::setprecision(3)
+              << "Total time | manifest=" << manifestSecs << "s"
+              << " run=" << runSecs << "s"
+              << " | overall=" << (manifestSecs + runSecs) << "s\n";
     return 0;
 }

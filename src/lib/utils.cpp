@@ -33,7 +33,6 @@ State::State() : isSelected(), selectedVertices(), possibleVertices() {}
 State::State(int numVertices) : isSelected(numVertices, false), selectedVertices(), possibleVertices() {
     for (int i = 0; i < numVertices; ++i) {
         possibleVertices.insert(i);
-        expandable++;
     }
 }
 
@@ -44,7 +43,6 @@ State::State(std::vector<bool> isSelectedInit)
             selectedVertices.insert(i);
         } else {
             possibleVertices.insert(i);
-            expandable++;
         }
     }
 }
@@ -53,8 +51,32 @@ State::~State() {
     // No dynamic memory to free
 }
 
+bool State::selectActionEdge(const Graph& graph) {
+    std::vector<std::pair<int, int>> validEdges;
+    for (int u = 0; u < graph.numVertices; ++u) {
+        if (possibleVertices.count(u)) {
+            for (int v : graph.adjacencyList[u]) {
+                if (possibleVertices.count(v) && u < v) {
+                    validEdges.emplace_back(u, v);
+                }
+            }
+        }
+    }
+    if (!validEdges.empty()) {
+        std::size_t idx = static_cast<std::size_t>(tl_uniform01(tl_engine) * validEdges.size());
+        if (idx >= validEdges.size()) idx = validEdges.size() - 1;
+        actionEdge = validEdges[idx];
+        if (tl_uniform01(tl_engine) < 0.5) { std::swap(actionEdge.first, actionEdge.second); }
+        return true;
+    } else {
+        actionEdge = {-1, -1}; // No valid edge
+        return false;
+    }
+}
+
 void State::include(int vertex) {
     if (vertex >= 0 && vertex < static_cast<int>(isSelected.size())) {
+        assert(possibleVertices.count(vertex) && "Error: including a vertex that is not in the possible set");
         isSelected[vertex] = true;
         selectedVertices.insert(vertex);
         possibleVertices.erase(vertex);
@@ -63,42 +85,27 @@ void State::include(int vertex) {
 
 void State::exclude(int vertex) {
     if (vertex >= 0 && vertex < static_cast<int>(isSelected.size())) {
-        assert(!isSelected[vertex] && "Excluding a vertex that is not selected");
+        assert(possibleVertices.count(vertex) && "Error: excluding a vertex that is not in the possible set");
         possibleVertices.erase(vertex);
-        expandable--;
     }
-}
-
-int State::randomVertex() {
-    int r = static_cast<int>(tl_uniform01(tl_engine) * static_cast<double>(this->getActionCounts()));
-
-    for (int i = 0; i < this->isSelected.size(); ++i) {
-        if (!this->isSelected[i]) {
-            if (r == 0) return i;
-            --r;
-        }
-    }
-    assert(false);
-    return -1;
-}
-
-int State::getActionCounts() {
-    return possibleVertices.size();
 }
 
 double State::evaluate() {
-    assert(!selectedVertices.empty() && "Evaluating state with no selected vertices");
+    assert(!selectedVertices.empty() && "Error: evaluating state with no selected vertices");
     return 1/static_cast<double>(selectedVertices.size());
 }
 
-namespace UCT {
-    Node* sampling(std::vector<Node*>& children, double explorationParam) {
+namespace treePolicy {
+    Node* uctSampling(Node* node, double explorationParam) {
+        const std::vector<Node*>& children = node->children;
         assert(!children.empty());
 
-        double totalVisits = 0.0;
-        for (const Node* child : children) {
-            totalVisits += static_cast<double>(child->visits);
-        }
+        // Compute state values
+        std::vector<double> stateValues;
+        stateValues.reserve(children.size());
+
+        int totalVisits = node->visits;
+        assert(totalVisits > 0 && "Total visits must be positive for UCT sampling");
 
         std::vector<double> weights;
         weights.reserve(children.size());
@@ -106,8 +113,8 @@ namespace UCT {
         for (const Node* child : children) {
             double uctValue = child->value +
                               2.0 * explorationParam *
-                              std::sqrt(2.0 * std::log(std::max(1.0, static_cast<double>(child->visits))) /
-                                        std::max(1.0, totalVisits));
+                              std::sqrt(2.0 * std::log(totalVisits) / (0.000001 + static_cast<double>(child->visits))
+                              );
             weights.push_back(std::max(0.0, uctValue));
         }
 
@@ -117,12 +124,6 @@ namespace UCT {
             w = sum;
         }
 
-        // if (sum <= 0.0) {
-        //     std::size_t idx = static_cast<std::size_t>(tl_uniform01(tl_engine) * children.size());
-        //     if (idx >= children.size()) idx = children.size() - 1;
-        //     return children[idx];
-        // }
-
         double r = tl_uniform01(tl_engine) * sum;
         for (std::size_t i = 0; i < weights.size(); ++i) {
             if (r <= weights[i]) return children[i];
@@ -130,6 +131,48 @@ namespace UCT {
         // Numerical edge case: return last
         assert(false);
         // return children.back();
+    }
+
+    Node* epsilonGreedy(Node* node, double explorationParam) {
+        const std::vector<Node*>& children = node->children;
+        assert(!children.empty());
+
+        // Compute state values
+        std::vector<double> stateValues;
+        stateValues.reserve(children.size());
+
+        int totalVisits = node->visits;
+        assert(totalVisits > 0 && "Total visits must be positive for UCT sampling");
+
+        for (const Node* child : children) {
+            // stateValues.push_back(child->maxValue);
+            double uctValue = child->value +
+                              2.0 * explorationParam *
+                              std::sqrt(2.0 * std::log(totalVisits) / (0.000001 + static_cast<double>(child->visits))
+                              );
+            stateValues.push_back(uctValue);
+        }
+
+        // Epsilon-greedy selection
+        double epsilon = 0.1; // Fixed epsilon value
+        double r = tl_uniform01(tl_engine);
+        if (r < epsilon) {
+            // Explore: random choice
+            std::size_t idx = static_cast<std::size_t>(tl_uniform01(tl_engine) * children.size());
+            if (idx >= children.size()) idx = children.size() - 1;
+            return children[idx];
+        } else {
+            // Exploit: best state value
+            std::size_t bestIdx = 0;
+            double bestValue = stateValues[0];
+            for (std::size_t i = 1; i < stateValues.size(); ++i) {
+                if (stateValues[i] > bestValue) {
+                    bestValue = stateValues[i];
+                    bestIdx = i;
+                }
+            }
+            return children[bestIdx];
+        }
     }
 }
 

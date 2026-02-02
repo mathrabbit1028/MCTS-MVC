@@ -55,6 +55,16 @@ public:
      * @brief Average reward of the node.
      */
     double value;
+
+    /**
+     * @brief Maximum reward observed at this node.
+     */
+    double maxValue = 0;
+
+    /**
+     * @brief Number of vertices that can be expanded.
+     */
+    int expandable = 2;
 };
 
 #endif // NODE_HPP

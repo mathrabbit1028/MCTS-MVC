@@ -1,6 +1,6 @@
 #include "node.hpp"
 
-Node::Node() : parent(nullptr), visits(0), value(0.0) {}
+Node::Node() : parent(nullptr), visits(0), value(0.0), expandable(2) {}
 
 Node::~Node() {
     for (Node* child : children) {
@@ -17,8 +17,9 @@ void Node::addExperience(double reward) {
     visits++;
     // value <- value + (reward - value) / visits
     value += (reward - value) / static_cast<double>(visits);
+    maxValue = std::max(maxValue, reward);
 }
 
 bool Node::full() {
-    return this->state.getActionCounts() == this->children.size();
+    return this->children.size() == 2;
 }

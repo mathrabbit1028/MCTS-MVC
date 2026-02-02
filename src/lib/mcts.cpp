@@ -5,10 +5,29 @@ MCTS::MCTS(Graph& graph, double explorationParam)
     , graph(graph)
     , explorationParam(explorationParam) {
     root->state = State(graph.numVertices);
+    answer = graph.numVertices; // Initial worst-case answer
+    while (this->kernelization(root));
+    if (!root->state.selectActionEdge(this->graph)) { 
+        answer = std::count(root->state.isSelected.begin(), root->state.isSelected.end(), true);
+        root->expandable = 0;
+        expandableUpdate(root);
+    }
 }
 
 MCTS::~MCTS() {
     delete root;
+}
+
+void MCTS::setExplorationParam(double param) {
+    this->explorationParam = param;
+}
+
+void MCTS::expandableUpdate(Node* node) {
+    while (node->expandable == 0) {
+        node = node->parent;
+        if (!node) return;
+        node->expandable--;
+    }
 }
 
 void MCTS::run() {
@@ -60,7 +79,7 @@ bool MCTS::kernelization(Node* node) {
     }
 
     // Rule 3: If there is a vertex with degree greater than k (where k is the size of the current solution), select it
-    int k = getSolution().selectedVertices.size();
+    int k = answer;
     for (int v = 0; v < this->graph.numVertices; ++v) {
         if (node->state.possibleVertices.count(v)) {
             int degree = 0;
@@ -86,8 +105,8 @@ State MCTS::getSolution() {
     while (!node->children.empty()) {
         Node* bestChild = nullptr;
         for (Node* c : node->children) {
-            if (!bestChild || c->value > bestChild->value || 
-                (c->value == bestChild->value && c->visits > bestChild->visits)) {
+            if (!bestChild || c->maxValue > bestChild->maxValue || 
+                (c->maxValue == bestChild->maxValue && c->visits > bestChild->visits)) {
                 bestChild = c;
             }
         }
@@ -97,24 +116,36 @@ State MCTS::getSolution() {
 }
 
 Node* MCTS::select(Node* node) {
-    if (node->state.getActionCounts() == 0) return node; // (todo: non-expandable handling)
     if (!node->full()) return node;
-    return select(UCT::sampling(node->children, this->explorationParam));
+    assert(node->expandable > 0 && "Node is fully expanded but marked expandable");
+    if (node->expandable == 1) {
+        assert(node->children.size() == 2);
+        if (node->children[0]->expandable > 0) return select(node->children[0]);
+        else return select(node->children[1]);
+    }
+    // return select(treePolicy::uctSampling(node, this->explorationParam));
+    return select(treePolicy::epsilonGreedy(node, this->explorationParam));
 }
 
 Node* MCTS::expand(Node* node) {
-    // If no actions remain, do not expand; treat node as the leaf
-    if (node->state.getActionCounts() == 0) {
-        return node;
-    } // (todo: non-expandable handling)
+    assert(node->expandable > 0 && "Cannot expand a fully expanded node");
+    assert(node->state.actionEdge.first != -1 && "No valid action edge to expand on");
 
-    Node* newChild = new Node();
-    newChild->state = node->state;
-    int action = newChild->state.randomVertex(); // (todo: sample-without-replacement)
-    newChild->state.include(action);
-    while (this->kernelization(newChild));
-    node->addChild(newChild);
-    return newChild;
+    Node *child = new Node();
+    child->state = node->state;
+    child->parent = node;
+    child->state.include(node->state.actionEdge.first);
+    // if (node->children.size() == 1) { child->state.exclude(node->state.actionEdge.second); }
+    while (this->kernelization(child));
+    if (!child->state.selectActionEdge(this->graph)) { 
+        child->expandable = 0;
+        expandableUpdate(child);
+    }
+    node->addChild(child);
+
+    std::swap(node->state.actionEdge.first, node->state.actionEdge.second);
+
+    return child;
 }
 
 State MCTS::simulate(Node* node) {
@@ -170,6 +201,8 @@ State MCTS::simulate(Node* node) {
         if (w == -1) break; // all selected
         sel[w] = true;
     }
+
+    answer = std::min(answer, static_cast<int>(std::count(sel.begin(), sel.end(), true)));
 
     return State(sel);
 

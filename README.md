@@ -1,12 +1,14 @@
+> Note: This branch uses edge-based actions and a greedy-heuristic rollout.
+
 # MCTS-MVC: Monte Carlo Tree Search for Minimum Vertex Cover
 
 This repository explores an approximation strategy for the Minimum Vertex Cover (MVC) problem using Monte Carlo Tree Search (MCTS).
 
 The project includes:
 - A small C++ library implementing core structures (`Graph`, `State`, `Node`) and the MCTS loop (`run`, `select`, `expand`, `simulate`, `backpropagate`).
-- A simple UCT-based child sampling routine.
+- UCT and epsilon-greedy tree policy implementations.
 - A dataset generator that produces MVC graph instances and solutions.
-- A lightweight test program.
+- A lightweight test program and performance harness.
 
 ## Project structure
 
@@ -17,18 +19,20 @@ The project includes:
       - `void addEdge(int u, int v)`: add an undirected edge
       - `int numVertices`: number of vertices
       - `std::vector<std::vector<int>> adjacencyList`: adjacency lists
+      - `Graph loadGraphFromJson(const std::string& path)`: load a graph from `{"num_vertices": N, "edges": [[u,v], ...]}` JSON
     - `State`: holds a partial/completed vertex cover
-      - `State()`, `State(int numVertices)`: construct an empty state sized to the graph
+      - `State()`, `State(int numVertices)`, `State(std::vector<bool> isSelectedInit)`: construct state
       - `std::vector<bool> isSelected`: flags for vertex selection
       - `std::unordered_set<int> selectedVertices`: selected vertex indices
       - `std::unordered_set<int> possibleVertices`: candidate vertices still available for actions
+      - `std::pair<int,int> actionEdge`: current edge action (endpoints); `(-1,-1)` indicates no valid action
+      - `bool selectActionEdge(const Graph& graph)`: choose a random uncovered/valid edge among `possibleVertices` and set `actionEdge`; returns true if an edge was found, false otherwise
       - `void include(int vertex)`: include/select a vertex into the cover
       - `void exclude(int vertex)`: exclude a vertex from consideration
-      - `int randomVertex()`: pick a random currently-unselected vertex (uniform)
-      - `int getActionCounts()`: number of remaining actions (unselected vertices)
       - `double evaluate()`: evaluation score (inverse cover size, i.e., `1.0 / |selected|`)
-    - `namespace UCT`
-      - `Node* sampling(std::vector<Node*>& children, double explorationParam = 0.0)`: pick a child according to a UCT-inspired weight; returns a child pointer
+    - `namespace treePolicy`
+      - `Node* uctSampling(Node* node, double explorationParam = 0.0)`: pick a child using UCT formula; returns a child pointer
+      - `Node* epsilonGreedy(Node* node, double explorationParam = 0.0)`: epsilon-greedy child selection based on `maxValue`
   - `node.hpp` / `node.cpp`
     - `Node`: tree node for MCTS
       - `State state`: selected vertices at this node
@@ -36,26 +40,38 @@ The project includes:
       - `std::vector<Node*> children`: child nodes
       - `int visits`: visit count
       - `double value`: accumulated value (online average of rewards)
+      - `double maxValue`: maximum reward observed in this node's subtree (initialized to 0)
+      - `int expandable`: number of remaining expandable actions (initialized to 2 for binary branching)
       - `void addChild(Node* child)`: attach a child (and set its parent)
-      - `void addExperience(double reward)`: update visits and value
-      - `bool full()`: indicates whether all actions from this state have been expanded (based on `getActionCounts()` vs `children.size()`)
+      - `void addExperience(double reward)`: update visits, value (running average), and maxValue (track maximum)
+      - `bool full()`: returns true if the node has 2 children (fully expanded for binary edge-based branching)
   - `mcts.hpp` / `mcts.cpp`
     - `class MCTS`
-      - `MCTS(Graph& graph, double explorationParam = 0.0)`: initialize with a graph and optional UCT exploration parameter; root state is sized accordingly
-      - `void run()`: one step of MCTS (currently selects a leaf)
-      - `Node* select(Node* node)`: descend until reaching a non-full node, using `UCT::sampling`
-      - `Node* expand(Node* node)`: create a new child by copying parent state and selecting one random unselected vertex
-      - `double simulate(Node* node)`: rough heuristic rollout — completes a vertex cover from the node’s current selection; reward is `1.0 / final_cover_size`
-      - `void backpropagate(Node* node, double reward)`: propagate reward up to root
+      - `MCTS(Graph& graph, double explorationParam = 0.0)`: initialize with a graph and optional UCT exploration parameter; applies initial kernelization to root
+      - `Graph graph`: the problem graph
+      - `Node* root`: root of the search tree
+      - `double explorationParam`: UCT exploration parameter
+      - `int answer`: current best solution size found (initialized to `numVertices`)
+      - `void run()`: one MCTS iteration (`select → expand → simulate → backpropagate`)
+      - `bool kernelization(Node* node)`: apply reduction rules:
+        - Rule 1: Exclude degree-0 vertices (no edges to cover)
+        - Rule 2: Include the neighbor of degree-1 vertices
+        - Rule 3: Include vertices with degree > current best `answer`
+        - Returns true if any rule was applied
+      - `State getSolution()`: traverse the tree following best `maxValue` chain (highest reward) and return a completed cover via `simulate`
+      - `void setExplorationParam(double param)`: update UCT exploration parameter
+      - `void expandableUpdate(Node* node)`: propagate `expandable=0` status upward to parents when a node becomes terminal
+      - `Node* select(Node* node)`: descend until reaching a non-full node, using `treePolicy::uctSampling` (or `epsilonGreedy`)
+      - `Node* expand(Node* node)`: **one-child-at-a-time edge branching** — creates one child by including `actionEdge.first`, then swaps the edge endpoints for the next expand call; applies kernelization after each inclusion
+      - `State simulate(Node* node)`: greedy rollout — completes a vertex cover from the node's state using max-degree heuristic; returns completed state
+      - `void backpropagate(Node* node, double reward)`: propagate reward up to root, updating visits, value (average), and maxValue (maximum)
 
 - `src/test/`
   - `test_mcts.cpp`: basic smoke test
     - Loads the first exact dataset instance (`data/exact/inputs/graph_0000.json`)
-    - Creates `MCTS`, checks root state sizing
-    - Calls `expand`, verifies child linkage and selection
-    - Calls `simulate`, expects non-negative reward
-    - Calls `backpropagate`, checks visit increment
-    - Adds extra children and checks `UCT::sampling` returns one of them
+    - Runs `MCTS::run()` a few iterations and checks the tree grows / visits update
+    - Ensures root has at least 4 children via `expand`
+    - Sanity-checks `uctSampling` returns one of the root children
 
 - `data/`
   - `generate_mvc_data.py`: dataset generator (Python)
@@ -147,6 +163,11 @@ Expected output includes a non-zero simulate reward and "All tests passed.".
 ### Performance harness
 The performance harness `src/test/perf_mcts.cpp` reads a manifest and prints per-instance CSV metrics.
 
+Compilation:
+```
+clang++ -std=c++17 src/lib/utils.cpp src/lib/node.cpp src/lib/mcts.cpp src/test/perf_mcts.cpp -o src/test/perf_mcts_bin
+```
+
 - CLI options (all optional):
   - `--manifest <path>`: dataset manifest file. Default `data/exact/manifest.json`.
   - `--iterations <n>`: number of MCTS iterations. Default `10`.
@@ -154,9 +175,10 @@ The performance harness `src/test/perf_mcts.cpp` reads a manifest and prints per
   - `--out-dir <path>`: output folder for CSV. Default `./result` (auto-created).
 
 - CSV file naming: `mvc_<tag>_iters-<iterations>_exp-<exploration>.csv`
-  - `<tag>` is inferred from the manifest path: if it contains `exact` → `exact`, if it contains `large` → `large`.
-  - If manifest path does not include `exact`/`large`, treated as `dataset`.
+  - `<tag>` is extracted from the manifest path: for `data/<tag>/manifest.json`, the folder name `<tag>` is used (e.g., `exact`, `large`, `small`).
+  - If extraction fails, defaults to `dataset`.
 
 - Examples:
   - Default run: `./src/test/perf_mcts_bin` → writes `./result/mvc_exact_iters-10_exp-0.csv`
-  - Large dataset: `./src/test/perf_mcts_bin --manifest data/large/manifest.json --iterations 50 --exploration 0.25 --out-dir ./result-large`
+  - Large dataset: `./src/test/perf_mcts_bin --manifest data/large/manifest.json --iterations 50 --exploration 0.25` → writes `./result/mvc_large_iters-50_exp-0.25.csv`
+  - Small dataset: `./src/test/perf_mcts_bin --manifest data/small/manifest.json --iterations 100 --exploration 0.1 --out-dir ./result-small` → writes `./result-small/mvc_small_iters-100_exp-0.1.csv`
