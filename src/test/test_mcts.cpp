@@ -32,24 +32,25 @@ int main() {
     }
     assert(anyVisited);
 
-    // Add more children to root
-    // Optionally add more children if run() added fewer than 4
-    while (mcts.root->children.size() < 4) {
+    // Try to add more children to root (only if still expandable)
+    while (mcts.root->children.size() < 4 && mcts.root->expandable > 0) {
         mcts.expand(mcts.root);
     }
-    assert(mcts.root->children.size() >= 4);
+    // With kernelization, the root may become terminal early; just ensure we didn't violate invariants.
+    assert(mcts.root->children.size() >= 1);
 
-    // Encourage depth: expand one of the children to create grandchildren
+    // Encourage depth: expand one of the children to create grandchildren (if possible)
     Node* child0 = mcts.root->children[0];
     for (int i = 0; i < 2; ++i) {
+        if (child0->expandable == 0) break;
         mcts.expand(child0);
     }
     // With edge-based branching, a successful expand will typically add 2 children
     // (unless no valid actionEdge remains).
     assert(child0->children.empty() || child0->children.size() >= 2);
 
-    // UCT sampling sanity: should return one of the children
-    Node* picked = UCT::sampling(mcts.root->children);
+    // Tree policy sanity: should return one of the children
+    Node* picked = treePolicy::epsilonGreedy(mcts.root);
     assert(picked != nullptr);
     bool belongs = false;
     for (Node* c : mcts.root->children) {

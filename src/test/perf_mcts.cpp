@@ -79,6 +79,15 @@ static int count_nodes_recursive(Node* node) {
     return total;
 }
 
+static int max_depth_recursive(Node* node) {
+    if (!node) return 0;
+    int best = 1;
+    for (Node* c : node->children) {
+        best = std::max(best, 1 + max_depth_recursive(c));
+    }
+    return best;
+}
+
 static double run_perf(const std::vector<InstancePath>& items, int iterations, double explorationParam, std::ostream& out) {
     // CSV header for per-instance metrics
     // idx: instance index in manifest
@@ -88,7 +97,7 @@ static double run_perf(const std::vector<InstancePath>& items, int iterations, d
     // total_nodes: total nodes in the MCTS tree (root + all descendants)
     // est_cover: estimated cover size from simulate(best)
     // truth_cover: ground-truth cover size from dataset output
-    out << "idx,n,edges,root_children,total_nodes,est_cover,truth_cover\n";
+    out << "idx,n,edges,root_children,total_nodes,max_depth,est_cover,truth_cover\n";
 
     // Track average reward per iteration across instances
     std::vector<double> avgRewards(iterations, 0.0);
@@ -125,6 +134,7 @@ static double run_perf(const std::vector<InstancePath>& items, int iterations, d
         auto tStatsStart = std::chrono::steady_clock::now();
         int rootChildren = (int)mcts.root->children.size();
         int totalNodes = count_nodes_recursive(mcts.root);
+        int maxDepth = max_depth_recursive(mcts.root);
         int estCover = mcts.answer;
         int truth = load_output_size(items[i].output);
         auto tStatsEnd = std::chrono::steady_clock::now();
@@ -141,7 +151,7 @@ static double run_perf(const std::vector<InstancePath>& items, int iterations, d
                   << " | cum=" << cumulativeSeconds << "s\n";
 
         out << i << "," << g.numVertices << "," << count_edges(g) << "," << rootChildren
-            << "," << totalNodes << "," << estCover << "," << truth << "\n";
+            << "," << totalNodes << "," << maxDepth << "," << estCover << "," << truth << "\n";
         out << std::flush;
     }
     // Finish progress line

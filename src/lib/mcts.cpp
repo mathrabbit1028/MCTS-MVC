@@ -1,4 +1,161 @@
 #include "mcts.hpp"
+#include <queue>
+#include <limits>
+#include <algorithm>
+#include <vector>
+
+namespace {
+    // Helper class for Hopcroft-Karp algorithm on the bipartite doubling of the graph
+    // to implement Nemhauser-Trotter (Crown) Kernelization.
+    class NemhauserTrotter {
+        int n;
+        const std::vector<std::vector<int>>& adj;
+        const std::unordered_set<int>& possible;
+        
+        // Bipartite matching structures
+        // We model a bipartite graph with Left (0..n-1) and Right (0..n-1).
+        // Edge u-v in G implies edges (u_L, v_R) and (v_L, u_R) in bipartite graph.
+        std::vector<int> pairU; // Left u -> Right v
+        std::vector<int> pairV; // Right v -> Left u
+        std::vector<int> dist;  // For BFS
+
+    public:
+        NemhauserTrotter(int n, const std::vector<std::vector<int>>& adj, const std::unordered_set<int>& possible)
+            : n(n), adj(adj), possible(possible), pairU(n, -1), pairV(n, -1), dist(n) {}
+
+        bool bfs() {
+            std::queue<int> q;
+            int distNIL = std::numeric_limits<int>::max(); 
+
+            for (int u = 0; u < n; ++u) {
+                if (!possible.count(u)) continue;
+                if (pairU[u] == -1) {
+                    dist[u] = 0;
+                    q.push(u);
+                } else {
+                    dist[u] = std::numeric_limits<int>::max();
+                }
+            }
+
+            while (!q.empty()) {
+                int u = q.front();
+                q.pop();
+
+                if (dist[u] < distNIL) {
+                    for (int v : adj[u]) {
+                        if (!possible.count(v)) continue;
+                        // Edge u_L -> v_R
+                        if (pairV[v] == -1) {
+                            if (distNIL == std::numeric_limits<int>::max()) {
+                                distNIL = dist[u] + 1;
+                            }
+                        } else if (dist[pairV[v]] == std::numeric_limits<int>::max()) {
+                            dist[pairV[v]] = dist[u] + 1;
+                            q.push(pairV[v]);
+                        }
+                    }
+                }
+            }
+            return distNIL != std::numeric_limits<int>::max();
+        }
+
+        bool dfs(int u) {
+            if (u != -1) {
+                for (int v : adj[u]) {
+                    if (!possible.count(v)) continue;
+                    if (pairV[v] == -1 || (dist[pairV[v]] == dist[u] + 1 && dfs(pairV[v]))) {
+                        pairV[v] = u;
+                        pairU[u] = v;
+                        return true;
+                    }
+                }
+                dist[u] = std::numeric_limits<int>::max();
+                return false;
+            }
+            return true;
+        }
+
+        void computeMaxMatching() {
+            while (bfs()) {
+                for (int u = 0; u < n; ++u) {
+                    if (possible.count(u) && pairU[u] == -1) {
+                        dfs(u);
+                    }
+                }
+            }
+        }
+
+        void getKernelNodes(std::vector<int>& toInclude, std::vector<int>& toExclude) {
+            computeMaxMatching();
+
+            // Koenig's construction for Min Vertex Cover in Bipartite Graph
+            // Z = Set of vertices reachable from Unmatched_L via alternating paths
+            // MVC = (L \ Z) U (R \cap Z)
+            
+            // 1. Find Z_L and Z_R
+            std::vector<bool> Z_L(n, false);
+            std::vector<bool> Z_R(n, false);
+            std::queue<int> q;
+
+            // Start with unmatched vertices in Left
+            for (int u = 0; u < n; ++u) {
+                if (possible.count(u) && pairU[u] == -1) {
+                    Z_L[u] = true;
+                    q.push(u);
+                }
+            }
+
+            while (!q.empty()) {
+                int u = q.front();
+                q.pop();
+                
+                // u is in L. Traverse edges L->R (non-matching)
+                // In our bipartite check, all edges (u, v) exist.
+                // The edge used in matching is (u, pairU[u]). All others are non-matching.
+                for (int v : adj[u]) {
+                    if (!possible.count(v)) continue;
+                    
+                    // We can only follow non-matching edges from L to R
+                    // If pairU[u] == v, this is a matching edge.
+                    if (pairU[u] == v) continue; 
+
+                    if (!Z_R[v]) {
+                        Z_R[v] = true;
+                        // From v in R, follow matching edge to L (if exists)
+                        if (pairV[v] != -1) {
+                            int w = pairV[v]; // w is in L
+                            if (!Z_L[w]) {
+                                Z_L[w] = true;
+                                q.push(w);
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 2. Identify P0 and P1 based on NT Theorem
+            // C_L = { u | !Z_L[u] }
+            // C_R = { v | Z_R[v] }
+            // Include u if matches on both sides: u_L \in C_L AND u_R \in C_R
+            // => !Z_L[u] AND Z_R[u]
+            // Exclude u if matches on neither side: u_L \notin C_L AND u_R \notin C_K
+            // => Z_L[u] AND !Z_R[u]
+
+            for (int u = 0; u < n; ++u) {
+                if (!possible.count(u)) continue;
+                
+                bool inC_L = !Z_L[u];
+                bool inC_R = Z_R[u];
+
+                if (inC_L && inC_R) {
+                    toInclude.push_back(u);
+                } else if (!inC_L && !inC_R) {
+                    toExclude.push_back(u);
+                }
+            }
+        }
+    };
+}
 
 MCTS::MCTS(Graph& graph, double explorationParam)
     : root(new Node())
@@ -96,6 +253,28 @@ bool MCTS::kernelization(Node* node) {
         }
     }
 
+    // Rule 4: Nemhauser-Trotter (Crown) Kernelization via Hopcroft-Karp
+    // We construct a bipartite graph B where V_B = V_L \cup V_R, edges (u_L, v_R) for {u,v} \in E.
+    // We find MVC of B using Max Matching (Hopcroft-Karp) + Koenig's theorem.
+    // Let C_B be the MVC of B.
+    // P0 = { u | u_L \in C_B AND u_R \in C_B } -> Must be in MVC of G.
+    // P1 = { u | u_L \notin C_B AND u_R \notin C_B } -> There is an optimal MVC excluding u.
+    // We include P0 and exclude P1.
+    
+    // Only run this expensive reduction if simpler rules failed and graph is reasonably sized
+    // or if we want strong pruning.
+    if (node->state.possibleVertices.size() > 0) {
+        NemhauserTrotter nt(this->graph.numVertices, this->graph.adjacencyList, node->state.possibleVertices);
+        std::vector<int> toInclude, toExclude;
+        nt.getKernelNodes(toInclude, toExclude);
+
+        if (!toInclude.empty() || !toExclude.empty()) {
+            for (int u : toInclude) node->state.include(u);
+            for (int u : toExclude) node->state.exclude(u);
+            return true;
+        }
+    }
+
     return false;
 }
 
@@ -135,7 +314,7 @@ Node* MCTS::expand(Node* node) {
     child->state = node->state;
     child->parent = node;
     child->state.include(node->state.actionEdge.first);
-    // if (node->children.size() == 1) { child->state.exclude(node->state.actionEdge.second); }
+    if (node->children.size() == 1) { child->state.exclude(node->state.actionEdge.second); }
     while (this->kernelization(child));
     if (!child->state.selectActionEdge(this->graph)) { 
         child->expandable = 0;

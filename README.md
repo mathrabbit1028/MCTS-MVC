@@ -26,7 +26,7 @@ The project includes:
       - `std::unordered_set<int> selectedVertices`: selected vertex indices
       - `std::unordered_set<int> possibleVertices`: candidate vertices still available for actions
       - `std::pair<int,int> actionEdge`: current edge action (endpoints); `(-1,-1)` indicates no valid action
-      - `bool selectActionEdge(const Graph& graph)`: choose a random uncovered/valid edge among `possibleVertices` and set `actionEdge`; returns true if an edge was found, false otherwise
+      - `bool selectActionEdge(const Graph& graph)`: choose an edge based on difference between two vertices' degrees; returns false if no edges remain
       - `void include(int vertex)`: include/select a vertex into the cover
       - `void exclude(int vertex)`: exclude a vertex from consideration
       - `double evaluate()`: evaluation score (inverse cover size, i.e., `1.0 / |selected|`)
@@ -57,6 +57,7 @@ The project includes:
         - Rule 1: Exclude degree-0 vertices (no edges to cover)
         - Rule 2: Include the neighbor of degree-1 vertices
         - Rule 3: Include vertices with degree > current best `answer`
+        - Rule 4: Crown Decomposition (if applicable)
         - Returns true if any rule was applied
       - `State getSolution()`: traverse the tree following best `maxValue` chain (highest reward) and return a completed cover via `simulate`
       - `void setExplorationParam(double param)`: update UCT exploration parameter

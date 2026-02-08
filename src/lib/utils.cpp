@@ -53,20 +53,27 @@ State::~State() {
 
 bool State::selectActionEdge(const Graph& graph) {
     std::vector<std::pair<int, int>> validEdges;
+    std::vector<int> degree(graph.numVertices, 0);
     for (int u = 0; u < graph.numVertices; ++u) {
         if (possibleVertices.count(u)) {
             for (int v : graph.adjacencyList[u]) {
                 if (possibleVertices.count(v) && u < v) {
                     validEdges.emplace_back(u, v);
+                    degree[u]++;
+                    degree[v]++;
                 }
             }
         }
     }
     if (!validEdges.empty()) {
-        std::size_t idx = static_cast<std::size_t>(tl_uniform01(tl_engine) * validEdges.size());
-        if (idx >= validEdges.size()) idx = validEdges.size() - 1;
-        actionEdge = validEdges[idx];
-        if (tl_uniform01(tl_engine) < 0.5) { std::swap(actionEdge.first, actionEdge.second); }
+        actionEdge = validEdges[0];
+        for (const auto& edge : validEdges) {
+            int u = edge.first;
+            int v = edge.second;
+            if (std::abs(degree[u] - degree[v]) > std::abs(degree[actionEdge.first] - degree[actionEdge.second])) {
+                actionEdge = edge;
+            }
+        }
         return true;
     } else {
         actionEdge = {-1, -1}; // No valid edge
