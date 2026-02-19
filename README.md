@@ -1,4 +1,4 @@
-> Note: This branch uses edge-based actions and a greedy-heuristic rollout.
+> Note: This branch uses vertex-based actions and a greedy-heuristic rollout.
 
 # MCTS-MVC: Monte Carlo Tree Search for Minimum Vertex Cover
 
@@ -25,11 +25,10 @@ The project includes:
       - `std::vector<bool> isSelected`: flags for vertex selection
       - `std::unordered_set<int> selectedVertices`: selected vertex indices
       - `std::unordered_set<int> possibleVertices`: candidate vertices still available for actions
-      - `std::pair<int,int> actionEdge`: current edge action (endpoints); `(-1,-1)` indicates no valid action
-      - `bool selectActionEdge(const Graph& graph)`: choose an edge based on difference between two vertices' degrees; returns false if no edges remain
+      - `int actionVertex`: current action vertex; `-1` indicates no valid action
+      - `bool selectActionVertex(const Graph& graph)`: choose an action vertex from `possibleVertices` (currently: uniform among max-degree vertices within the remaining induced graph); returns false if none remain
       - `void include(int vertex)`: include/select a vertex into the cover
       - `void exclude(int vertex)`: exclude a vertex from consideration
-      - `double evaluate()`: evaluation score (inverse cover size, i.e., `1.0 / |selected|`)
     - `namespace treePolicy`
       - `Node* uctSampling(Node* node, double explorationParam = 0.0)`: pick a child using UCT formula; returns a child pointer
       - `Node* epsilonGreedy(Node* node, double explorationParam = 0.0)`: epsilon-greedy child selection based on `maxValue`
@@ -44,7 +43,8 @@ The project includes:
       - `int expandable`: number of remaining expandable actions (initialized to 2 for binary branching)
       - `void addChild(Node* child)`: attach a child (and set its parent)
       - `void addExperience(double reward)`: update visits, value (running average), and maxValue (track maximum)
-      - `bool full()`: returns true if the node has 2 children (fully expanded for binary edge-based branching)
+  - `bool full()`: returns true if the node has 2 children (binary branching)
+  - `double evaluate(const Graph& graph)`: evaluation score of the state (API exists; current `MCTS::run()` uses rollout size as reward)
   - `mcts.hpp` / `mcts.cpp`
     - `class MCTS`
       - `MCTS(Graph& graph, double explorationParam = 0.0)`: initialize with a graph and optional UCT exploration parameter; applies initial kernelization to root
@@ -52,7 +52,7 @@ The project includes:
       - `Node* root`: root of the search tree
       - `double explorationParam`: UCT exploration parameter
       - `int answer`: current best solution size found (initialized to `numVertices`)
-      - `void run()`: one MCTS iteration (`select → expand → simulate → backpropagate`)
+  - `void run()`: one MCTS iteration (`select → expand → simulate → backpropagate`), currently using reward `- |cover|` from `simulate()`
       - `bool kernelization(Node* node)`: apply reduction rules:
         - Rule 1: Exclude degree-0 vertices (no edges to cover)
         - Rule 2: Include the neighbor of degree-1 vertices
@@ -63,7 +63,7 @@ The project includes:
       - `void setExplorationParam(double param)`: update UCT exploration parameter
       - `void expandableUpdate(Node* node)`: propagate `expandable=0` status upward to parents when a node becomes terminal
       - `Node* select(Node* node)`: descend until reaching a non-full node, using `treePolicy::uctSampling` (or `epsilonGreedy`)
-      - `Node* expand(Node* node)`: **one-child-at-a-time edge branching** — creates one child by including `actionEdge.first`, then swaps the edge endpoints for the next expand call; applies kernelization after each inclusion
+  - `Node* expand(Node* node)`: vertex-based binary branching on `actionVertex` — first child includes `actionVertex`, second child excludes it and includes all its neighbors; applies kernelization after each branch
       - `State simulate(Node* node)`: greedy rollout — completes a vertex cover from the node's state using max-degree heuristic; returns completed state
       - `void backpropagate(Node* node, double reward)`: propagate reward up to root, updating visits, value (average), and maxValue (maximum)
 

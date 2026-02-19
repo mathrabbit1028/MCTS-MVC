@@ -23,3 +23,7 @@ void Node::addExperience(double reward) {
 bool Node::full() {
     return this->children.size() == 2;
 }
+
+double Node::evaluate(const Graph& graph) {
+    return 0.0;
+}

@@ -51,34 +51,40 @@ State::~State() {
     // No dynamic memory to free
 }
 
-bool State::selectActionEdge(const Graph& graph) {
-    std::vector<std::pair<int, int>> validEdges;
-    std::vector<int> degree(graph.numVertices, 0);
-    for (int u = 0; u < graph.numVertices; ++u) {
-        if (possibleVertices.count(u)) {
-            for (int v : graph.adjacencyList[u]) {
-                if (possibleVertices.count(v) && u < v) {
-                    validEdges.emplace_back(u, v);
-                    degree[u]++;
-                    degree[v]++;
-                }
-            }
-        }
-    }
-    if (!validEdges.empty()) {
-        actionEdge = validEdges[0];
-        for (const auto& edge : validEdges) {
-            int u = edge.first;
-            int v = edge.second;
-            if (std::abs(degree[u] - degree[v]) > std::abs(degree[actionEdge.first] - degree[actionEdge.second])) {
-                actionEdge = edge;
-            }
-        }
-        return true;
-    } else {
-        actionEdge = {-1, -1}; // No valid edge
+bool State::selectActionVertex(const Graph& graph) {
+    if (possibleVertices.empty()) {
+        actionVertex = -1; // No valid vertex
         return false;
     }
+
+    // Compute degree inside the induced subgraph of possible vertices
+    int bestDeg = -1;
+    std::vector<int> candidates;
+    candidates.reserve(possibleVertices.size());
+    for (int u : possibleVertices) {
+        int deg = 0;
+        for (int v : graph.adjacencyList[u]) {
+            if (possibleVertices.count(v)) ++deg;
+        }
+        if (deg > bestDeg) {
+            bestDeg = deg;
+            candidates.clear();
+            candidates.push_back(u);
+        } else if (deg == bestDeg) {
+            candidates.push_back(u);
+        }
+    }
+
+    // Choose uniformly at random among candidates with maximum degree
+    if (candidates.empty()) {
+        // defensive fallback: pick any
+        auto it = possibleVertices.begin();
+        actionVertex = *it;
+        return true;
+    }
+    std::uniform_int_distribution<size_t> dist(0, candidates.size() - 1);
+    actionVertex = candidates[dist(tl_engine)];
+    return true;
 }
 
 void State::include(int vertex) {
@@ -95,11 +101,6 @@ void State::exclude(int vertex) {
         assert(possibleVertices.count(vertex) && "Error: excluding a vertex that is not in the possible set");
         possibleVertices.erase(vertex);
     }
-}
-
-double State::evaluate() {
-    assert(!selectedVertices.empty() && "Error: evaluating state with no selected vertices");
-    return 1/static_cast<double>(selectedVertices.size());
 }
 
 namespace treePolicy {
@@ -154,9 +155,8 @@ namespace treePolicy {
         for (const Node* child : children) {
             // stateValues.push_back(child->maxValue);
             double uctValue = child->value +
-                              2.0 * explorationParam *
-                              std::sqrt(2.0 * std::log(totalVisits) / (0.000001 + static_cast<double>(child->visits))
-                              );
+                              explorationParam *
+                              std::sqrt(2.0 * std::log(totalVisits / (0.000001 + static_cast<double>(child->visits))));
             stateValues.push_back(uctValue);
         }
 

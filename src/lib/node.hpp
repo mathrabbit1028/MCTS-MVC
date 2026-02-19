@@ -32,6 +32,12 @@ public:
     bool full();
 
     /**
+     * @brief Evaluates the current state at the node.
+     * @return The evaluation score.
+     */
+    double evaluate(const Graph& graph);
+
+    /**
      * @brief Selected vertices at this node.
      */
     State state;

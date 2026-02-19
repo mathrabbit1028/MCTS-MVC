@@ -67,16 +67,16 @@ public:
     std::unordered_set<int> possibleVertices;
 
     /**
-     * @brief Pair representing the edge for the current action.
+     * @brief Index of the action vertex.
      */
-    std::pair<int, int> actionEdge;
+    int actionVertex;
 
     /**
-     * @brief Selects a random action edge from the valid edges.
-     * @param graph The graph to select the edge from.
-     * @return true if an action edge was selected, false otherwise.
+     * @brief Selects a random action vertex from the possible vertices.
+     * @param graph The graph to select the vertex from.
+     * @return true if an action vertex was selected, false otherwise.
      */
-    bool selectActionEdge(const Graph& graph);
+    bool selectActionVertex(const Graph& graph);
 
     /**
      * @brief Selects a vertex in the solution.
@@ -89,12 +89,7 @@ public:
      * @param vertex The vertex to be excluded.
      */
     void exclude(int vertex);
-
-    /**
-     * @brief Score of the solution.
-     * @return A double representing the evaluation score.
-     */
-    double evaluate();
+    
 };
 
 // Forward declaration to avoid circular include in headers

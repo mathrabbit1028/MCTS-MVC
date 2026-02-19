@@ -4,6 +4,8 @@
 #include <algorithm>
 #include <vector>
 
+#include <iostream>
+
 namespace {
     // Helper class for Hopcroft-Karp algorithm on the bipartite doubling of the graph
     // to implement Nemhauser-Trotter (Crown) Kernelization.
@@ -164,7 +166,7 @@ MCTS::MCTS(Graph& graph, double explorationParam)
     root->state = State(graph.numVertices);
     answer = graph.numVertices; // Initial worst-case answer
     while (this->kernelization(root));
-    if (!root->state.selectActionEdge(this->graph)) { 
+    if (!root->state.selectActionVertex(this->graph)) {
         answer = std::count(root->state.isSelected.begin(), root->state.isSelected.end(), true);
         root->expandable = 0;
         expandableUpdate(root);
@@ -185,13 +187,6 @@ void MCTS::expandableUpdate(Node* node) {
         if (!node) return;
         node->expandable--;
     }
-}
-
-void MCTS::run() {
-    Node* leaf = this->select(root);
-    Node* child = this->expand(leaf);
-    double reward = this->simulate(child).evaluate();
-    this->backpropagate(child, reward);
 }
 
 bool MCTS::kernelization(Node* node) {
@@ -294,6 +289,13 @@ State MCTS::getSolution() {
     return simulate(node);
 }
 
+void MCTS::run() {
+    Node* leaf = this->select(root);
+    Node* child = this->expand(leaf);
+    double reward = -this->simulate(child).selectedVertices.size();
+    this->backpropagate(child, reward);
+}
+
 Node* MCTS::select(Node* node) {
     if (!node->full()) return node;
     assert(node->expandable > 0 && "Node is fully expanded but marked expandable");
@@ -308,21 +310,31 @@ Node* MCTS::select(Node* node) {
 
 Node* MCTS::expand(Node* node) {
     assert(node->expandable > 0 && "Cannot expand a fully expanded node");
-    assert(node->state.actionEdge.first != -1 && "No valid action edge to expand on");
+    // assert(node->state.actionEdge.first != -1 && "No valid action edge to expand on");
+    assert(node->state.actionVertex != -1 && "No valid action vertex to expand on");
 
     Node *child = new Node();
     child->state = node->state;
     child->parent = node;
-    child->state.include(node->state.actionEdge.first);
-    if (node->children.size() == 1) { child->state.exclude(node->state.actionEdge.second); }
+    // child->state.include(node->state.actionEdge.first);
+    // if (node->children.size() == 1) { child->state.exclude(node->state.actionEdge.second); }
+    if (node->children.size() == 0) {
+        child->state.include(node->state.actionVertex);
+    } else {
+        child->state.exclude(node->state.actionVertex);
+        for (int v : this->graph.adjacencyList[child->state.actionVertex]) {
+            if (child->state.possibleVertices.count(v) > 0) child->state.include(v);
+        }
+    }
     while (this->kernelization(child));
-    if (!child->state.selectActionEdge(this->graph)) { 
+    // if (!child->state.selectActionEdge(this->graph)) { 
+    if (!child->state.selectActionVertex(this->graph)) {
         child->expandable = 0;
         expandableUpdate(child);
     }
     node->addChild(child);
 
-    std::swap(node->state.actionEdge.first, node->state.actionEdge.second);
+    // std::swap(node->state.actionEdge.first, node->state.actionEdge.second);
 
     return child;
 }
