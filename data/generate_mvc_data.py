@@ -3,7 +3,7 @@ import argparse
 import json
 import os
 import random
-from typing import List, Tuple
+from typing import List, Set, Tuple
 
 random.seed(42)
 
@@ -66,7 +66,7 @@ def greedy_vertex_cover(n: int, edges: List[Tuple[int, int]]) -> List[int]:
 def greedy_vertex_cover_min_degree(n: int, edges: List[Tuple[int, int]]) -> List[int]:
     """A contrarian heuristic: repeatedly select the min-degree vertex.
     Included to diversify heuristics; sometimes helps on sparse graphs."""
-    remaining = set(edges)
+    remaining: Set[Tuple[int, int]] = set(edges)
     cover = []
     while remaining:
         deg = [0] * n

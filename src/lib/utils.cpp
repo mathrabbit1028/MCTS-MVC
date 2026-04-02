@@ -84,6 +84,10 @@ bool State::selectActionVertex(const Graph& graph) {
     }
     std::uniform_int_distribution<size_t> dist(0, candidates.size() - 1);
     actionVertex = candidates[dist(tl_engine)];
+
+    // Calculate estimated probability of including the action vertex
+    estProbInclude = treePolicy::estimatePolicy(*this, graph, true);
+
     return true;
 }
 
@@ -180,6 +184,41 @@ namespace treePolicy {
             }
             return children[bestIdx];
         }
+    }
+
+    void setEstimatePolicy(std::function<double(const State&, const Graph&, bool)> policy) {
+        estimatePolicy = policy;
+    }
+
+    Node* puctArgmax(Node* node, const Graph& graph, double explorationParam) {
+        const std::vector<Node*>& children = node->children;
+        assert(!children.empty());
+
+        int totalVisits = node->visits;
+        assert(totalVisits > 0 && "Total visits must be positive for PUCT sampling");
+
+        std::vector<double> puctValues;
+        puctValues.reserve(children.size());
+
+        bool include = true;
+        for (const Node* child : children) {
+            double puctValue = child->value +
+                            explorationParam *
+                            (include ? node->state.estProbInclude : 1 - node->state.estProbInclude) *
+                            std::sqrt(totalVisits) / (1.0 + static_cast<double>(child->visits));
+            puctValues.push_back(puctValue);
+            bool include = false;
+        }
+
+        std::size_t bestIdx = 0;
+        double bestValue = puctValues[0];
+        for (std::size_t i = 1; i < puctValues.size(); ++i) {
+            if (puctValues[i] > bestValue) {
+                bestValue = puctValues[i];
+                bestIdx = i;
+            }
+        }
+        return children[bestIdx];
     }
 }
 

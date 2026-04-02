@@ -7,6 +7,7 @@ This repository explores an approximation strategy for the Minimum Vertex Cover 
 The project includes:
 - A small C++ library implementing core structures (`Graph`, `State`, `Node`) and the MCTS loop (`run`, `select`, `expand`, `simulate`, `backpropagate`).
 - UCT and epsilon-greedy tree policy implementations.
+- PUCT tree policy support with pluggable prior estimator (`treePolicy::setEstimatePolicy`).
 - A dataset generator that produces MVC graph instances and solutions.
 - A lightweight test program and performance harness.
 
@@ -26,12 +27,15 @@ The project includes:
       - `std::unordered_set<int> selectedVertices`: selected vertex indices
       - `std::unordered_set<int> possibleVertices`: candidate vertices still available for actions
       - `int actionVertex`: current action vertex; `-1` indicates no valid action
+  - `double estProbInclude`: cached prior estimate for including `actionVertex` (used by PUCT)
       - `bool selectActionVertex(const Graph& graph)`: choose an action vertex from `possibleVertices` (currently: uniform among max-degree vertices within the remaining induced graph); returns false if none remain
       - `void include(int vertex)`: include/select a vertex into the cover
       - `void exclude(int vertex)`: exclude a vertex from consideration
     - `namespace treePolicy`
       - `Node* uctSampling(Node* node, double explorationParam = 0.0)`: pick a child using UCT formula; returns a child pointer
       - `Node* epsilonGreedy(Node* node, double explorationParam = 0.0)`: epsilon-greedy child selection based on `maxValue`
+      - `void setEstimatePolicy(std::function<double(const State&, const Graph&, bool)> policy)`: register prior estimator used by PUCT
+      - `Node* puctArgmax(Node* node, const Graph& graph, double explorationParam = 0.0)`: PUCT child selection using value + prior bonus
   - `node.hpp` / `node.cpp`
     - `Node`: tree node for MCTS
       - `State state`: selected vertices at this node
@@ -63,6 +67,7 @@ The project includes:
       - `void setExplorationParam(double param)`: update UCT exploration parameter
       - `void expandableUpdate(Node* node)`: propagate `expandable=0` status upward to parents when a node becomes terminal
       - `Node* select(Node* node)`: descend until reaching a non-full node, using `treePolicy::uctSampling` (or `epsilonGreedy`)
+        - current branch default selects with `treePolicy::puctArgmax`
   - `Node* expand(Node* node)`: vertex-based binary branching on `actionVertex` — first child includes `actionVertex`, second child excludes it and includes all its neighbors; applies kernelization after each branch
       - `State simulate(Node* node)`: greedy rollout — completes a vertex cover from the node's state using max-degree heuristic; returns completed state
       - `void backpropagate(Node* node, double reward)`: propagate reward up to root, updating visits, value (average), and maxValue (maximum)
@@ -73,9 +78,19 @@ The project includes:
     - Runs `MCTS::run()` a few iterations and checks the tree grows / visits update
     - Ensures root has at least 4 children via `expand`
     - Sanity-checks `uctSampling` returns one of the root children
+  - `test_estimator.cpp`: estimator analysis tool for per-vertex prior quality
+    - Loads one graph (`data/exact/inputs/graph_0000.json` by default)
+    - Applies crown decomposition first and evaluates only the remaining crown core vertices
+    - Prints `vertex,prob_include,mvc_inclusion_count`
+    - Enumerates all minimum vertex covers by brute force on the active core (when core size ≤ 20) and reports how often each vertex appears
+    - Current estimator implementation in this file is **Strategy #8 (dual-based)** from `puct-stratagy.md`
 
 - `data/`
   - `generate_mvc_data.py`: dataset generator (Python)
+  - `generate_hack_data.py`: adversarial-style bipartite instance generator for greedy stress-testing
+    - Builds hard instances (`L` and grouped `R_i` construction) and exports to `data/hack`
+    - Appends one instance at a time to `data/hack/manifest.json`
+    - Stores greedy max-degree cover size as reference metadata in output JSON
   - `exact/`: exact dataset (moved from `mvc/`, 25 instances with `N ≤ 22`)
     - `inputs/graph_XXXX.json`: graph instances
     - `outputs/graph_XXXX.json`: exact vertex covers
@@ -152,17 +167,21 @@ Generator parameters:
 - `--dataset-type` — `exact` (force exact), `large` (multi-greedy), `auto` (exact if `n ≤ exact-limit`, else greedy)
 - `--out-dir` — output directory root
 
-## Build and run tests
-
-From the repo root on macOS with clang:
-```
-clang++ -std=c++17 src/lib/utils.cpp src/lib/node.cpp src/lib/mcts.cpp src/test/test_mcts.cpp -o src/test/test_mcts_bin
-src/test/test_mcts_bin
-```
-Expected output includes a non-zero simulate reward and "All tests passed.".
-
 ### Performance harness
 The performance harness `src/test/perf_mcts.cpp` reads a manifest and prints per-instance CSV metrics.
+
+Current branch behavior notes:
+- `perf_mcts.cpp`
+  - includes tqdm-like progress rendering and per-instance timing breakdown (`load/iter/stats/cum`)
+  - initializes PUCT prior via `init_estimate_policy()`
+  - currently uses a **perturbation-LP style estimator** (multiple perturbed solves + threshold counting)
+- `mcts.cpp`
+  - selection path currently uses `treePolicy::puctArgmax`
+  - kernelization includes Rule 4 Nemhauser-Trotter (Crown) reduction
+- `utils.hpp` / `utils.cpp`
+  - added pluggable prior API (`estimatePolicy`, `setEstimatePolicy`)
+  - `State::selectActionVertex()` now caches `estProbInclude`
+  - `puctArgmax` uses cached prior (`estProbInclude` / `1-estProbInclude`) in exploration bonus
 
 Compilation:
 ```
@@ -183,3 +202,11 @@ clang++ -std=c++17 src/lib/utils.cpp src/lib/node.cpp src/lib/mcts.cpp src/test/
   - Default run: `./src/test/perf_mcts_bin` → writes `./result/mvc_exact_iters-10_exp-0.csv`
   - Large dataset: `./src/test/perf_mcts_bin --manifest data/large/manifest.json --iterations 50 --exploration 0.25` → writes `./result/mvc_large_iters-50_exp-0.25.csv`
   - Small dataset: `./src/test/perf_mcts_bin --manifest data/small/manifest.json --iterations 100 --exploration 0.1 --out-dir ./result-small` → writes `./result-small/mvc_small_iters-100_exp-0.1.csv`
+
+### `result/` folder naming notes
+- Files whose names start with `mvc_` are generated from the **PUCT-based** runs.
+- Result files that do **not** start with `mvc_` (or do not have a separate policy tag in the filename) are from the **epsilon-greedy** policy.
+- In other words, unless explicitly tagged otherwise, unnamed/default policy outputs in `result/` should be interpreted as epsilon-greedy results.
+
+### PUCT strategy notes
+- See `puct-stratagy.md` for the estimator design candidates (LP-based, perturbation ensemble, MCMC, dual-based, etc.) and implementation guidance.

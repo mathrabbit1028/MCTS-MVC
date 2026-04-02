@@ -72,6 +72,11 @@ public:
     int actionVertex;
 
     /**
+     * @brief Estimated probability of including the action vertex.
+     */
+    double estProbInclude;
+
+    /**
      * @brief Selects a random action vertex from the possible vertices.
      * @param graph The graph to select the vertex from.
      * @return true if an action vertex was selected, false otherwise.
@@ -111,6 +116,27 @@ namespace treePolicy {
      * @return Pointer to the selected child node.
      */
     Node* epsilonGreedy(Node* node, double explorationParam = 0.0);
+
+    /**
+     * @brief Function for estimating the value of a state, used in PUCT sampling.
+     */
+    inline std::function<double(const State&, const Graph&, bool)> estimatePolicy = [](const State& state, const Graph& graph, bool include) {
+        return 0.5; // Default to a constant estimate (can be overridden by setEstimatePolicy)
+    };
+
+    /**
+     * @brief Sets the policy function for estimating the value of a state.
+     * @param policy A function that takes a State, Graph, and a boolean indicating whether to include the action vertex, and returns a double value estimate.
+     */
+    void setEstimatePolicy(std::function<double(const State&, const Graph&, bool)> policy);
+
+    /**
+     * @brief Samples a child node using PUCT (Prioritized Upper Confidence Tree) strategy.
+     * @param node Pointer to the parent node.
+     * @param explorationParam Exploration parameter for PUCT.
+     * @return Pointer to the selected child node.
+     */
+    Node* puctArgmax(Node* node, const Graph& graph, double explorationParam = 0.0);
 };
 
 #endif // UTILS_HPP

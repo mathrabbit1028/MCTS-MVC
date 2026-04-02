@@ -306,6 +306,7 @@ Node* MCTS::select(Node* node) {
     }
     // return select(treePolicy::uctSampling(node, this->explorationParam));
     return select(treePolicy::epsilonGreedy(node, this->explorationParam));
+    // return select(treePolicy::puctArgmax(node, this->graph, this->explorationParam));
 }
 
 Node* MCTS::expand(Node* node) {

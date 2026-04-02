@@ -1,0 +1,24 @@
+{
+  "instances": [
+    {
+      "input": "data/hack/inputs/graph_0000.json",
+      "output": "data/hack/outputs/graph_0000.json"
+    },
+    {
+      "input": "data/hack/inputs/graph_0001.json",
+      "output": "data/hack/outputs/graph_0001.json"
+    },
+    {
+      "input": "data/hack/inputs/graph_0002.json",
+      "output": "data/hack/outputs/graph_0002.json"
+    },
+    {
+      "input": "data/hack/inputs/graph_0003.json",
+      "output": "data/hack/outputs/graph_0003.json"
+    },
+    {
+      "input": "data/hack/inputs/graph_0004.json",
+      "output": "data/hack/outputs/graph_0004.json"
+    }
+  ]
+}
